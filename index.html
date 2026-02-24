@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RealWorld — Florida AUTOPILOT (Viewport Parcels + Live + Games)</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- MarkerCluster -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<style>
+  :root{
+    --bg:#020617; --muted:#9ca3af; --accent:#22c55e; --danger:#e11d48; --warn:#f59e0b;
+    --card1:rgba(6,10,16,0.86); --card2:rgba(4,6,10,0.86);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;}
+  html,body{height:100%}
+  body{height:100vh;display:flex;flex-direction:column;background:linear-gradient(180deg,#041220,var(--bg));color:#e6eef6}
+
+  header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid rgba(155,170,190,0.05)}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:950;letter-spacing:.06em}
+  .dot{width:22px;height:22px;border-radius:999px;background:conic-gradient(#22c55e,#06b6d4,#a855f7,#f97316);box-shadow:0 0 12px rgba(59,130,246,0.35)}
+  .hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pill{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid rgba(155,170,190,0.10);background:rgba(3,5,8,0.25);color:#eaf2ff;white-space:nowrap}
+  .btn{cursor:pointer;border:1px solid rgba(155,170,190,0.12);background:rgba(3,5,8,0.30);color:#fff;border-radius:10px;padding:8px 10px;font-weight:900}
+  .btn:hover{background:rgba(59,130,246,0.10)}
+  .btn-primary{background:linear-gradient(180deg,var(--accent),#0f6c3d);border:1px solid rgba(10,70,34,0.6)}
+  .btn-danger{background:linear-gradient(180deg,#fb7185,#be123c);border:1px solid rgba(190,18,60,0.6)}
+  .btn-warn{background:linear-gradient(180deg,#fbbf24,#b45309);border:1px solid rgba(180,83,9,0.7)}
+
+  .search{padding:10px 18px;border-bottom:1px solid rgba(155,170,190,0.03)}
+  .search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .autocomplete{position:relative;flex:1;min-width:320px}
+  .search-input{width:100%;padding:10px 12px;border-radius:999px;border:1px solid rgba(155,170,190,0.10);background:rgba(10,12,16,0.55);color:#f4f7fb;outline:none}
+  .suggest{position:absolute;left:0;right:0;top:calc(100% + 8px);background:rgba(6,10,16,0.98);border:1px solid rgba(155,170,190,0.10);border-radius:12px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,0.6);z-index:99999;display:none}
+  .suggest .row{padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(155,170,190,0.06)}
+  .suggest .row:last-child{border-bottom:0}
+  .suggest .row:hover,.suggest .row.active{background:rgba(59,130,246,0.15)}
+  .suggest .title{font-weight:950;font-size:13px}
+  .suggest .sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+  main{flex:1;display:grid;grid-template-columns:1.6fr 520px;gap:14px;padding:14px;position:relative}
+  #mapContainer{position:relative;height:100%;width:100%}
+  #map{height:100%;border-radius:12px;border:1px solid rgba(155,170,190,0.04);overflow:hidden;box-shadow:0 16px 40px rgba(2,6,12,0.7)}
+  #gamesPage{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    overflow-y:auto;
+    padding:16px;
+    box-sizing:border-box;
+    border-radius:12px;
+    border:1px solid rgba(155,170,190,0.04);
+    box-shadow:0 16px 40px rgba(2,6,12,0.7);
+    background:linear-gradient(180deg,var(--card1),var(--card2));
+    display:none;
+  }
+  /* Health care overlay (similar to games) */
+  #healthPage{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    overflow-y:auto;
+    padding:16px;
+    box-sizing:border-box;
+    border-radius:12px;
+    border:1px solid rgba(155,170,190,0.04);
+    box-shadow:0 16px 40px rgba(2,6,12,0.7);
+    background:linear-gradient(180deg,var(--card1),var(--card2));
+    display:none;
+  }
+  .panel{display:flex;flex-direction:column;gap:12px;height:100%}
+  .card{background:linear-gradient(180deg,var(--card1),var(--card2));padding:12px;border-radius:12px;border:1px solid rgba(155,170,190,0.04);box-shadow:0 8px 20px rgba(0,0,0,0.6)}
+  .card h3{font-size:13px;color:var(--muted);margin-bottom:8px}
+  .muted{color:var(--muted);font-size:13px;line-height:1.35}
+
+  .photo{width:100%;height:150px;object-fit:cover;border-radius:10px;border:1px solid rgba(155,170,190,0.06);background:#020617}
+  .stream{width:100%;height:150px;border-radius:10px;border:1px solid rgba(155,170,190,0.06);background:#020617;display:none}
+  .title{font-weight:950;font-size:16px;margin-top:8px}
+  .price{font-weight:950;font-size:20px;margin-top:4px}
+  .price.red{color:#fecaca}
+  .price.green{color:#bbf7d0}
+  .tag{display:inline-block;margin-top:8px;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid rgba(155,170,190,0.10);background:rgba(3,5,8,0.25)}
+  .stats{display:flex;gap:8px;margin-top:10px}
+  .stat{flex:1;padding:8px;border-radius:10px;border:1px solid rgba(155,170,190,0.06);background:rgba(255,255,255,0.02);text-align:center}
+  .stat .n{font-weight:950}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .kv{padding:8px;border-radius:10px;border:1px solid rgba(155,170,190,0.06);background:rgba(255,255,255,0.02)}
+  .kv .k{font-size:12px;color:var(--muted)}
+  .kv .v{font-weight:900;margin-top:4px;word-break:break-word;font-size:13px}
+
+  .field{display:flex;flex-direction:column;margin-bottom:8px}
+  .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+  .input,.textarea{padding:8px;border-radius:10px;border:1px solid rgba(155,170,190,0.06);background:rgba(6,8,12,0.6);color:#eaf2ff;outline:none}
+  .textarea{min-height:72px;resize:vertical}
+
+  .progressbar{height:8px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:8px}
+  .progressbar>div{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#60a5fa,#a855f7);transition:width .12s}
+
+  .agent-wrapper{width:64px;height:82px;display:flex;align-items:flex-end;justify-content:center}
+  .agent-body{width:32px;height:50px;position:relative;transform:rotateX(12deg) rotateZ(-6deg)}
+  .agent-torso{position:absolute;bottom:6px;left:6px;right:6px;height:22px;border-radius:8px;background:linear-gradient(180deg,var(--accent),#15803d)}
+  .agent-tv{position:absolute;bottom:32px;left:2px;right:2px;height:22px;border-radius:6px;background:linear-gradient(180deg,#111827,#020617);overflow:hidden;border:1px solid rgba(155,170,190,0.08)}
+  .agent-tv video{width:100%;height:100%;object-fit:cover;display:block}
+  .agent-label{position:absolute;top:-18px;left:50%;transform:translateX(-50%);padding:4px 8px;border-radius:999px;background:rgba(3,5,8,0.9);font-size:12px;border:1px solid rgba(155,170,190,0.06)}
+
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:999999}
+  .modal{position:fixed;left:50%;top:10%;transform:translateX(-50%);width:94%;max-width:520px;background:linear-gradient(180deg,#061327,#020617);
+    border:1px solid rgba(155,170,190,0.10);border-radius:14px;box-shadow:0 40px 100px rgba(0,0,0,0.7);display:none;z-index:1000000}
+  .modal header{border-bottom:1px solid rgba(155,170,190,0.08);padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+  .modal header .t{font-weight:950}
+  .modal .content{padding:14px}
+  .x{border:1px solid rgba(155,170,190,0.10);background:rgba(0,0,0,0.3);border-radius:10px;padding:6px 10px;cursor:pointer;color:#fff}
+
+  /* Friends / Messenger */
+  .friendsDock{
+    position:fixed; right:14px; bottom:14px; width:320px; max-width:calc(100vw - 28px);
+    background:linear-gradient(180deg,rgba(6,10,16,0.92),rgba(2,6,12,0.92));
+    border:1px solid rgba(155,170,190,0.10); border-radius:14px; overflow:hidden; z-index:9999;
+    box-shadow:0 18px 60px rgba(0,0,0,0.65);
+  }
+  .friendsHdr{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(155,170,190,0.08)}
+  .friendsHdr .t{font-weight:950}
+  .friendsList{max-height:220px;overflow:auto}
+  .friendRow{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(155,170,190,0.06)}
+  .friendRow:hover{background:rgba(59,130,246,0.12)}
+  .avatarDot{width:10px;height:10px;border-radius:999px;background:#6b7280;border:2px solid rgba(255,255,255,0.9)}
+  .avatarDot.on{background:#22c55e}
+  .friendRow .name{font-weight:900;font-size:13px}
+  .friendRow .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .chatBox{display:none;flex-direction:column;height:280px}
+  .chatMsgs{flex:1;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .msg{max-width:85%;padding:8px 10px;border-radius:12px;border:1px solid rgba(155,170,190,0.10);background:rgba(255,255,255,0.04);font-size:13px;line-height:1.25}
+  .msg.me{align-self:flex-end;background:rgba(34,197,94,0.10);border-color:rgba(34,197,94,0.22)}
+  .chatInputRow{display:flex;gap:8px;padding:10px 12px;border-top:1px solid rgba(155,170,190,0.08)}
+  .chatInputRow input{flex:1}
+  .chatTop{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(155,170,190,0.08)}
+  .chatTop .who{font-weight:950}
+
+  @media (max-width:980px){ main{grid-template-columns:1fr}}
+
+  /* Tic Tac Toe board styles */
+  .ttt-board{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+  .ttt-cell{display:flex;justify-content:center;align-items:center;font-size:22px;color:#eaf2ff;border:1px solid rgba(155,170,190,0.06);background:rgba(6,8,12,0.6);border-radius:6px;cursor:pointer;height:60px}
+  .ttt-cell:hover{background:rgba(59,130,246,0.15)}
+
+  /* Stream page overlay */
+  #streamPage{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    display:none;
+    grid-template-columns:1.6fr 520px;
+    gap:14px;
+    padding:14px;
+    box-sizing:border-box;
+    background:linear-gradient(180deg,var(--card1),var(--card2));
+    z-index:10000;
+  }
+  #streamVideoSection{position:relative;border-radius:12px;box-shadow:0 16px 40px rgba(2,6,12,0.7);overflow:hidden;display:flex;flex-direction:column}
+  #streamVideo{width:100%;height:100%;flex:1;object-fit:cover;background:#020617}
+  #exitStreamBtn{position:absolute;top:10px;left:10px;z-index:1}
+  #streamChatPanel{display:flex;flex-direction:column;gap:12px}
+
+  /* Live broadcast modal */
+  #liveBackdrop{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:1000000}
+  #liveModal{position:fixed;left:50%;top:5%;transform:translateX(-50%);width:90%;max-width:700px;height:85%;background:linear-gradient(180deg,var(--card1),var(--card2));border:1px solid rgba(155,170,190,0.15);border-radius:14px;box-shadow:0 40px 100px rgba(0,0,0,0.7);display:none;z-index:1000001;flex-direction:column}
+  #liveModal header{padding:12px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(155,170,190,0.08)}
+  #liveModal .content{flex:1;padding:14px;display:flex;flex-direction:column;overflow:hidden}
+  #liveVideo{width:100%;height:200px;border-radius:8px;background:#020617;border:1px solid rgba(155,170,190,0.06)}
+  #liveChat{flex:1;margin-top:10px;overflow-y:auto;border-radius:8px;border:1px solid rgba(155,170,190,0.06);padding:8px;background:rgba(255,255,255,0.04)}
+  #liveChat .msg.me{text-align:right}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><div class="dot"></div>RealWorld — Florida (AUTOPILOT)</div>
+  <div class="hdr-right">
+    <div id="livePill" class="pill">Idle</div>
+    <div id="modePill" class="pill">Mode: Florida</div>
+    <div id="userPill" class="pill">Guest</div>
+    <button id="loginBtn" class="btn">Login</button>
+  </div>
+</header>
+
+<div class="search">
+  <div class="search-row">
+    <div class="autocomplete">
+      <input id="searchInput" class="search-input" placeholder="Search Florida address (fast): “811 2nd st ne naples fl”" autocomplete="off"/>
+      <div id="suggestBox" class="suggest"></div>
+    </div>
+    <button id="micBtn" class="btn">🎙 Mic Off</button>
+    <button id="camBtn" class="btn">📷 Camera Off</button>
+    <button id="liveBtn" class="btn btn-primary">🎬 Go Live</button>
+    <button id="gamesBtn" class="btn">🎮 Games</button>
+    <!-- New health care tab next to games category -->
+    <button id="healthBtn" class="btn">🏥 Health Care</button>
+    <button id="clearCacheBtn" class="btn">🧹 Clear Cache</button>
+  </div>
+  <div id="statusLine" class="muted" style="margin-top:8px;padding-left:4px">
+    Zoom to 13+ to load parcel dots. Grey = parcel exists. Red = for sale (demo toggle).
+    <div class="progressbar"><div id="bar"></div></div>
+  </div>
+</div>
+
+<main>
+  <div id="mapContainer">
+    <div id="map"></div>
+    <!-- Games page overlay -->
+    <div id="gamesPage">
+      <div class="card">
+        <h3>Games</h3>
+        <div id="builtGamesList">
+          <button id="playTicTacToeBtn" class="btn btn-primary">Play Tic Tac Toe</button>
+        </div>
+        <div id="ticTacToeArea" style="display:none;"></div>
+        <div style="margin-top:10px;">
+          <label class="label">Upload HTML Game</label>
+          <input id="gameUploadInput" class="input" type="file" accept=".html,.htm"/>
+        </div>
+        <iframe id="gameFrame" style="width:100%;height:400px;margin-top:10px;border-radius:8px;border:1px solid rgba(155,170,190,0.06);display:none;"></iframe>
+        <button id="backToMapFromGames" class="btn" style="margin-top:10px;">← Back to Map</button>
+      </div>
+    </div>
+    <!-- Health care page overlay -->
+    <div id="healthPage">
+      <div class="card">
+        <h3>Health Care</h3>
+        <p class="muted">This section can host health care resources, tools, or content. Feel free to upload or embed health care information here.</p>
+        <button id="backToMapFromHealth" class="btn" style="margin-top:10px;">← Back to Map</button>
+      </div>
+    </div>
+  </div>
+
+  <aside class="panel" id="sidePanel">
+    <div class="card">
+      <h3 id="rightTitle">Property Page</h3>
+      <img id="pPhoto" class="photo" alt="Property photo"/>
+      <video id="pStream" class="stream" autoplay playsinline muted></video>
+      <div class="title" id="pTitle">No parcel selected</div>
+      <div class="price green" id="pPrice">Off Market</div>
+      <div class="muted" id="pAddr">Type an address or click a dot/cluster.</div>
+      <div class="tag" id="pStatus">—</div>
+      <div class="stats">
+        <div class="stat"><div class="n" id="pAcre">—</div><div class="k">Acres</div></div>
+        <div class="stat"><div class="n" id="pZip">—</div><div class="k">Zip</div></div>
+        <div class="stat"><div class="n" id="pFLN">—</div><div class="k">Parcel ID</div></div>
+      </div>
+      <div class="grid" id="detailGrid"></div>
+      <div class="actions">
+        <button id="draftBtn" class="btn btn-primary">Draft Contract</button>
+        <button id="buyBtn" class="btn btn-warn">Buy (MVP)</button>
+        <button id="toggleSaleBtn" class="btn btn-warn">Toggle For Sale (Demo)</button>
+        <button id="centerBtn" class="btn">Center Map</button>
+        <button id="closeStreamBtn" class="btn" style="display:none">Close Stream</button>
+      </div>
+      <div class="muted" style="margin-top:10px">
+        AUTOPILOT Florida: parcels load by viewport (fast + safe). The true “all Florida instantly” step is vector tiles (backend).
+      </div>
+    </div>
+    <div class="card">
+      <h3>Agent</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="agent-wrapper"></div>
+          <div>
+            <div style="font-weight:950">You</div>
+            <div class="muted" id="agentPos">—</div>
+          </div>
+        </div>
+        <div class="pill">Move: Arrow Keys</div>
+      </div>
+      <video id="selfPreview" style="margin-top:10px;width:100%;height:120px;border-radius:10px;background:#041018;border:1px solid rgba(155,170,190,0.06)" autoplay muted playsinline></video>
+      <div class="muted" style="margin-top:8px">Double-click an NPC TV head to pop their stream into full-screen with chat.</div>
+    </div>
+    <div class="card">
+      <h3>Draft Contract</h3>
+      <div class="field"><div class="label">Property</div><input id="c_prop" class="input" readonly></div>
+      <div class="field"><div class="label">Address</div><input id="c_addr" class="input" readonly></div>
+      <div class="field"><div class="label">Purchase Price</div><input id="c_price" class="input" placeholder="e.g. 750000"></div>
+      <div class="field"><div class="label">Buyer</div><input id="c_buyer" class="input" placeholder="Buyer name(s)"></div>
+      <div class="field"><div class="label">Seller</div><input id="c_seller" class="input" placeholder="Seller name(s)"></div>
+      <div class="field"><div class="label">Closing Date</div><input id="c_date" class="input" type="date"></div>
+      <div class="field"><div class="label">Notes</div><textarea id="c_notes" class="textarea" placeholder="Terms, contingencies, etc."></textarea></div>
+      <div class="actions">
+        <button id="printBtn" class="btn btn-primary">Save / Print</button>
+        <button id="clearBtn" class="btn">Clear</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Draft only — have a licensed pro review.</div>
+    </div>
+  </aside>
+  <!-- Stream page for full-screen stream with chat -->
+  <div id="streamPage">
+    <div id="streamVideoSection">
+      <video id="streamVideo" autoplay playsinline muted></video>
+      <button id="exitStreamBtn" class="btn">← Back to Map</button>
+    </div>
+    <aside id="streamChatPanel" class="panel">
+      <div class="card">
+        <h3>Live Chat</h3>
+        <div id="streamChatMsgs" class="chatMsgs" style="height:200px;overflow:auto"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <input id="streamChatInput" class="input" placeholder="Type a message…"/>
+          <button id="streamSendBtn" class="btn btn-primary">Send</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- Login + Bank modal -->
+<div id="backdrop" class="modal-backdrop"></div>
+<div id="loginModal" class="modal" role="dialog" aria-hidden="true">
+  <header>
+    <div class="t">Account</div>
+    <button class="x" id="closeLogin">✕</button>
+  </header>
+  <div class="content">
+    <div class="muted">Local-only demo auth. Replace with real auth later.</div>
+    <div style="height:10px"></div>
+    <div class="field"><div class="label">Email</div><input id="email" class="input" placeholder="you@email.com"></div>
+    <div class="field"><div class="label">Password</div><input id="pass" class="input" type="password" placeholder="••••••••"></div>
+    <div class="actions">
+      <button id="doLogin" class="btn btn-primary">Login</button>
+      <button id="doLogout" class="btn btn-danger">Logout</button>
+    </div>
+
+    <div style="height:14px"></div>
+    <div style="border-top:1px solid rgba(155,170,190,0.08);padding-top:14px">
+      <div style="font-weight:950;margin-bottom:6px">Bank (MVP)</div>
+      <div class="muted">Mock “connect bank” for investor demo.</div>
+      <div style="height:10px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card" style="margin:0">
+          <div class="muted">Linked Bank</div>
+          <div style="font-weight:950;margin-top:6px" id="bankName">None</div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="muted">Verified Funds</div>
+          <div style="font-weight:950;margin-top:6px" id="bankBal">$0</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="connectBank" class="btn btn-primary">Connect Bank</button>
+        <button id="unlinkBank" class="btn">Unlink</button>
+      </div>
+
+      <div style="height:14px"></div>
+      <div style="border-top:1px solid rgba(155,170,190,0.08);padding-top:14px">
+        <div style="font-weight:950;margin-bottom:6px">RealWorld API (optional)</div>
+        <div class="muted">If you deploy your own property database API, paste the base URL here.</div>
+        <div style="height:10px"></div>
+        <div class="field"><div class="label">API Base URL</div><input id="apiBase" class="input" placeholder="http://localhost:8787"></div>
+        <div class="actions">
+          <button id="enableApiBtn" class="btn btn-primary">Enable API</button>
+          <button id="disableApiBtn" class="btn">Disable API</button>
+        </div>
+        <div class="muted" style="margin-top:8px">
+          Expected endpoints: <code>/api/search</code>, <code>/api/viewport</code>, <code>/api/property</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Live Broadcast Modal -->
+<div id="liveBackdrop" class="modal-backdrop"></div>
+<div id="liveModal" class="modal" role="dialog" aria-hidden="true">
+  <header>
+    <div class="t">Go Live</div>
+    <button class="x" id="closeLive">✕</button>
+  </header>
+  <div class="content">
+    <video id="liveVideo" autoplay playsinline muted></video>
+    <div id="liveChat" class="chatMsgs" style="margin-top:10px;"></div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <input id="liveMsgInput" class="input" placeholder="Type a message…"/>
+      <button id="liveSendBtn" class="btn btn-primary">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Friends / Messenger -->
+<div class="friendsDock" id="friendsDock">
+  <div class="friendsHdr">
+    <div class="t">Friends</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="toggleFriendsBtn">Collapse</button>
+    </div>
+  </div>
+  <div id="friendsList" class="friendsList"></div>
+  <div id="chatBox" class="chatBox">
+    <div class="chatTop">
+      <div class="who" id="chatWho">Chat</div>
+      <button class="btn" id="backToFriendsBtn">Back</button>
+    </div>
+    <div class="chatMsgs" id="chatMsgs"></div>
+    <div class="chatInputRow">
+      <input id="chatInput" class="input" placeholder="Type a message…"/>
+      <button id="sendMsgBtn" class="btn btn-primary">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================
+   CONFIG (AUTOPILOT)
+====================== */
+// Optional RealWorld API base URL (backend). When set via modal, property search/detail can use your backend.
+let REALWORLD_API_BASE = null;
+
+/* ======================
+   UTIL
+====================== */
+const $ = (id)=>document.getElementById(id);
+// Escape HTML entities for safe insertion into the DOM
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[c]);
+}
+function money(n){ return (n && n>0) ? '$'+Number(n).toLocaleString() : ''; }
+function demoPhoto(){ return 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=1200'; }
+function setBar(p){ $('bar').style.width = Math.max(0,Math.min(100,p))+'%'; }
+function normAddr(s){ return String(s||'').toUpperCase().replace(/[.,#]/g,' ').replace(/\s+/g,' ').trim(); }
+function badge(text){ return `<span style="display:inline-block;margin:6px 6px 0 0;font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid rgba(155,170,190,0.10);background:rgba(3,5,8,0.25)">${esc(text)}</span>`; }
+function fmt(v){ return (v==null || v==='') ? '—' : String(v); }
+
+/* ======================
+   MAP
+====================== */
+// Florida center for map (approximate geographic center of state)
+const FL_CENTER = [27.9944, -81.7603];
+const map = L.map('map').setView(FL_CENTER, 7);
+map.keyboard.disable();
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+const clusters = L.markerClusterGroup({ chunkedLoading:true, chunkInterval:120, maxClusterRadius:60 });
+map.addLayer(clusters);
+
+/* ======================
+   AVATAR (TV head for you)
+====================== */
+const AvatarIcon = L.DivIcon.extend({
+  options:{
+    className:'',
+    html:`<div class="agent-wrapper">
+            <div class="agent-body">
+              <div class="agent-tv"><video id="agentVideo" autoplay muted playsinline></video></div>
+              <div class="agent-torso"></div>
+            </div>
+            <div class="agent-label">You</div>
+          </div>`,
+    iconSize:[64,82], iconAnchor:[32,82]
+  }
+});
+let agentLat = FL_CENTER[0], agentLng = FL_CENTER[1];
+const agentMarker = L.marker([agentLat,agentLng], {icon:new AvatarIcon()}).addTo(map);
+let agentVideoEl=null;
+map.whenReady(()=>{
+  const el=agentMarker.getElement();
+  if(el) agentVideoEl = el.querySelector('#agentVideo');
+});
+function updateAgentPos(){ $('agentPos').textContent = agentLat.toFixed(5)+", "+agentLng.toFixed(5); }
+updateAgentPos();
+
+// Move agent via arrow keys and map clicks
+const STEP_METERS=25;
+const LAT_STEP=STEP_METERS/111000;
+function lngStepAtLat(lat){ return STEP_METERS/(111000*Math.cos(lat*Math.PI/180)); }
+window.addEventListener('keydown', (ev)=>{
+  const el=document.activeElement;
+  const typing = el && (el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable);
+  if(typing) return;
+  let dLat=0,dLng=0;
+  if(ev.code==='ArrowUp') dLat=LAT_STEP;
+  else if(ev.code==='ArrowDown') dLat=-LAT_STEP;
+  else if(ev.code==='ArrowLeft') dLng=-lngStepAtLat(agentLat);
+  else if(ev.code==='ArrowRight') dLng=lngStepAtLat(agentLat);
+  else return;
+  ev.preventDefault();
+  agentLat+=dLat; agentLng+=dLng;
+  agentMarker.setLatLng([agentLat,agentLng]);
+  updateAgentPos();
+});
+map.on('click',(e)=>{
+  agentLat=e.latlng.lat; agentLng=e.latlng.lng;
+  agentMarker.setLatLng([agentLat,agentLng]);
+  updateAgentPos();
+});
+
+/* ======================
+   MIC/CAM
+====================== */
+const camBtn=$('camBtn'), micBtn=$('micBtn'), selfPreview=$('selfPreview');
+let camStream=null, micStream=null;
+camBtn.addEventListener('click', async ()=>{
+  if(camStream){
+    camStream.getTracks().forEach(t=>t.stop());
+    camStream=null;
+    camBtn.textContent='📷 Camera Off';
+    camBtn.classList.remove('btn-primary');
+    selfPreview.srcObject=null;
+    if(agentVideoEl) agentVideoEl.srcObject=null;
+    attachNpcStreams();
+    return;
+  }
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+    camStream=s;
+    selfPreview.srcObject=s;
+    camBtn.textContent='📷 Camera On';
+    camBtn.classList.add('btn-primary');
+    if(agentVideoEl) agentVideoEl.srcObject=s;
+    attachNpcStreams();
+  }catch(e){ alert('Camera blocked. Use HTTPS or localhost and allow permission.'); }
+});
+micBtn.addEventListener('click', async ()=>{
+  if(micStream){
+    micStream.getTracks().forEach(t=>t.stop());
+    micStream=null;
+    micBtn.textContent='🎙 Mic Off';
+    micBtn.classList.remove('btn-primary');
+    return;
+  }
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    micStream=s;
+    micBtn.textContent='🎙 Mic On';
+    micBtn.classList.add('btn-primary');
+  }catch(e){ alert('Microphone blocked. Allow permission.'); }
+});
+
+/* ======================
+   PROPERTY PANEL MODES
+====================== */
+let selected=null, pin=null;
+function showPropertyMode(){
+  $('rightTitle').textContent = 'Property Page';
+  $('pStream').style.display = 'none';
+  $('pPhoto').style.display = 'block';
+  $('closeStreamBtn').style.display = 'none';
+  $('pStream').srcObject = null;
+}
+function showStreamMode(name, stream){
+  $('rightTitle').textContent = 'Live Stream';
+  $('pPhoto').style.display = 'none';
+  $('pStream').style.display = 'block';
+  $('closeStreamBtn').style.display = 'inline-flex';
+  $('pTitle').textContent = name + ' (double-clicked)';
+  $('pPrice').textContent = '';
+  $('pAddr').textContent = 'Stream popout demo. Real version uses WebRTC signaling + rooms.';
+  $('pStatus').textContent = 'Stream';
+  $('pAcre').textContent = '—'; $('pZip').textContent = '—'; $('pFLN').textContent = '—';
+  $('detailGrid').innerHTML = `<div class="muted">UI is wired. Next step: real multiplayer streams via WebRTC + a signaling server.</div>`;
+  $('pStream').srcObject = stream || null;
+}
+$('closeStreamBtn').addEventListener('click', ()=> showPropertyMode());
+function renderDetailGrid(parcel){
+  const g = $('detailGrid');
+  const items = [
+    ['Owner', parcel.owner],
+    ['Land Use', parcel.landUse],
+    ['Assmt Yr', parcel.assmtYear],
+    ['County Code', parcel.coNo],
+    ['Source', parcel.source]
+  ].filter(([k,v])=>v && String(v).trim()!=='');
+  g.innerHTML = items.length
+    ? items.map(([k,v])=>`<div class="kv"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')
+    : `<div class="muted">No extra fields available yet.</div>`;
+}
+function fillContract(parcel){
+  $('c_prop').value = parcel.title || '';
+  $('c_addr').value = parcel.address || '';
+  $('c_notes').value =
+`Parcel ID: ${parcel.parcelId || parcel.id || '—'}\nOwner: ${parcel.owner || '—'}\nLand Use: ${parcel.landUse || '—'}\nCounty Code: ${parcel.coNo || '—'}\nSource: ${parcel.source || '—'}\nStatus: ${parcel.status || 'off_market'}`;
+}
+function renderProperty(parcel){
+  showPropertyMode();
+  $('pPhoto').src = demoPhoto();
+  $('pTitle').textContent = parcel.title || 'Property';
+  $('pAddr').textContent = parcel.address || '—';
+  $('pAcre').textContent = parcel.acres ?? '—';
+  $('pZip').textContent = parcel.zip || '—';
+  $('pFLN').textContent = parcel.parcelId || parcel.id || '—';
+  if(parcel.status==='for_sale'){
+    $('pPrice').textContent = parcel.askPrice ? money(parcel.askPrice) : 'For Sale';
+    $('pPrice').classList.remove('green'); $('pPrice').classList.add('red');
+    $('pStatus').textContent = 'For Sale (red dot — demo overlay)';
+  }else{
+    $('pPrice').textContent = 'Off Market';
+    $('pPrice').classList.remove('red'); $('pPrice').classList.add('green');
+    $('pStatus').textContent = 'Off Market (grey dot)';
+  }
+  renderDetailGrid(parcel);
+  fillContract(parcel);
+}
+function selectParcel(parcel, center=true){
+  selected = parcel;
+  renderProperty(parcel);
+  if(center) map.setView([parcel.lat, parcel.lng], Math.max(15, map.getZoom()));
+  if(pin) map.removeLayer(pin);
+  pin = L.marker([parcel.lat, parcel.lng]).addTo(map);
+  agentLat=parcel.lat; agentLng=parcel.lng;
+  agentMarker.setLatLng([agentLat,agentLng]);
+  updateAgentPos();
+}
+
+/* ======================
+   MARKERS
+====================== */
+function makeDotMarker(parcel){
+  const isForSale = parcel.status==='for_sale';
+  const html = `<div style="width:12px;height:12px;border-radius:999px;border:2px solid rgba(255,255,255,0.95);background:${isForSale ? '#e11d48' : '#6b7280'};box-shadow:0 0 10px rgba(0,0,0,0.35)"></div>`;
+  const icon = L.divIcon({className:'', html, iconSize:[12,12], iconAnchor:[6,6]});
+  const m = L.marker([parcel.lat, parcel.lng], {icon});
+  m.on('click', ()=> selectParcel(parcel, true));
+  return m;
+}
+function addMarkersBatched(parcels){
+  const batchSize = 250;
+  let i=0;
+  function step(){
+    const end = Math.min(i+batchSize, parcels.length);
+    for(; i<end; i++){
+      const p = parcels[i];
+      p._marker = makeDotMarker(p);
+      clusters.addLayer(p._marker);
+    }
+    if(i < parcels.length) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ======================
+   DATA LOADERS (Florida Parcels via FDOR)
+====================== */
+const FDOR_CENTROID_QUERY = "https://services9.arcgis.com/Gh9awoU677aKree0/ArcGIS/rest/services/Florida_Statewide_Parcel_Centroid_Version/FeatureServer/0/query";
+async function arcgisFetch(url, params, signal){
+  const qs = new URLSearchParams(params);
+  const r = await fetch(url + '?' + qs.toString(), {signal});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function boundsEnvelope4326(b){
+  const sw=b.getSouthWest(), ne=b.getNorthEast();
+  return { xmin: sw.lng, ymin: sw.lat, xmax: ne.lng, ymax: ne.lat, spatialReference:{ wkid:4326 } };
+}
+const LOAD_MIN_ZOOM = 13;
+const MAX_NEW_PER_VIEW = 3500;
+const PAGE_SIZE = 2000;
+const PARCEL_CACHE_KEY = "rw_fl_parcels_cache_v1";
+let seen = new Set();
+try{
+  const raw = localStorage.getItem(PARCEL_CACHE_KEY);
+  if(raw){
+    const arr = JSON.parse(raw);
+    if(Array.isArray(arr)) arr.slice(0,200000).forEach(x=>seen.add(String(x)));
+  }
+}catch{}
+function persistSeen(){
+  try{
+    const arr = Array.from(seen);
+    const tail = arr.slice(Math.max(0, arr.length - 120000));
+    localStorage.setItem(PARCEL_CACHE_KEY, JSON.stringify(tail));
+  }catch{}
+}
+let loadTimer=null;
+let inFlightAbort=null;
+async function fetchParcelsInView(){
+  const z = map.getZoom();
+  if(z < LOAD_MIN_ZOOM){
+    setBar(100);
+    $('livePill').textContent = 'Idle';
+    $('statusLine').childNodes[0].textContent = `Zoom to ${LOAD_MIN_ZOOM}+ to load Florida parcel dots safely. `;
+    return;
+  }
+  if(inFlightAbort) inFlightAbort.abort();
+  inFlightAbort = new AbortController();
+  const {signal} = inFlightAbort;
+  $('livePill').textContent = 'Live';
+  $('statusLine').childNodes[0].textContent = 'Loading Florida parcels in view… ';
+  setBar(10);
+  const geom = JSON.stringify(boundsEnvelope4326(map.getBounds()));
+  let offset=0, added=0;
+  const newParcels = [];
+  try{
+    while(added < MAX_NEW_PER_VIEW){
+      setBar(20 + Math.min(70, (added/MAX_NEW_PER_VIEW)*70));
+      const j = await arcgisFetch(FDOR_CENTROID_QUERY,{
+        f:'geojson',
+        where:'1=1',
+        outFields:'CO_NO,PARCEL_ID,OWN_NAME,DOR_UC,ASMNT_YR',
+        returnGeometry:'true',
+        outSR:'4326',
+        geometry:geom,
+        geometryType:'esriGeometryEnvelope',
+        spatialRel:'esriSpatialRelIntersects',
+        resultOffset:String(offset),
+        resultRecordCount:String(PAGE_SIZE)
+      }, signal);
+      const feats = j.features || [];
+      if(!feats.length) break;
+      for(const f of feats){
+        const p = f.properties || {};
+        const g = f.geometry;
+        const coords = (g && g.type==='Point') ? g.coordinates : null;
+        if(!coords) continue;
+        const parcelId = p.PARCEL_ID ? String(p.PARCEL_ID) : '';
+        if(!parcelId) continue;
+        const id = 'FDOR:'+parcelId;
+        if(seen.has(id)) continue;
+        const parcel = {
+          id,
+          parcelId,
+          owner: p.OWN_NAME ? String(p.OWN_NAME) : '',
+          landUse: p.DOR_UC ? String(p.DOR_UC) : '',
+          assmtYear: p.ASMNT_YR != null ? String(p.ASMNT_YR) : '',
+          coNo: p.CO_NO != null ? String(p.CO_NO) : '',
+          acres:'—',
+          zip:'',
+          address:`Parcel ${parcelId}, Florida`,
+          title:`Parcel ${parcelId}`,
+          lat: coords[1],
+          lng: coords[0],
+          status:'off_market',
+          askPrice:null,
+          source:'Florida DOR Statewide Parcel Centroids'
+        };
+        seen.add(id);
+        newParcels.push(parcel);
+        added++;
+        if(added >= MAX_NEW_PER_VIEW) break;
+      }
+      offset += feats.length;
+      if(feats.length < PAGE_SIZE) break;
+    }
+    addMarkersBatched(newParcels);
+    setBar(100);
+    $('statusLine').childNodes[0].textContent = `Loaded ${newParcels.length.toLocaleString()} new parcels in-view. Seen cache: ${seen.size.toLocaleString()}. `;
+    persistSeen();
+    if(!selected && newParcels.length){
+      selectParcel(newParcels[0], false);
+    }
+  }catch(err){
+    if(err && err.name==='AbortError') return;
+    console.warn(err);
+    $('livePill').textContent = 'Err';
+    setBar(100);
+    $('statusLine').childNodes[0].textContent = 'Parcel load failed (network/CORS). Try again.';
+  }
+}
+function scheduleViewportLoad(){
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(fetchParcelsInView, 260);
+}
+map.on('moveend zoomend', scheduleViewportLoad);
+
+/* ======================
+   SEARCH AUTOCOMPLETE (Florida addresses via Nominatim)
+====================== */
+const searchInput=$('searchInput'), suggestBox=$('suggestBox');
+let lastSuggest=[], activeIndex=-1, debounceTimer=null, seq=0;
+function hideSuggest(){ suggestBox.style.display='none'; suggestBox.innerHTML=''; lastSuggest=[]; activeIndex=-1; }
+function renderSuggest(){
+  if(!lastSuggest.length){ hideSuggest(); return; }
+  suggestBox.innerHTML = lastSuggest.map((r,i)=>{
+    const cls = i===activeIndex ? 'row active' : 'row';
+    return `<div class="${cls}" data-i="${i}"><div class="title">${esc(r.label)}</div><div class="sub">Florida geocoder</div></div>`;
+  }).join('');
+  suggestBox.style.display='block';
+}
+async function nominatimSearch(q){
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&countrycodes=us&q=' + encodeURIComponent(q + ' florida');
+  const r = await fetch(url, {headers:{'Accept':'application/json'}});
+  if(!r.ok) throw new Error('geocode http '+r.status);
+  const j = await r.json();
+  return (j||[]).map(x=>({ label:x.display_name, lat:Number(x.lat), lng:Number(x.lon) })).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lng));
+}
+searchInput.addEventListener('input', ()=>{
+  const q = searchInput.value.trim();
+  clearTimeout(debounceTimer);
+  if(q.length < 4){ hideSuggest(); return; }
+  debounceTimer=setTimeout(async ()=>{
+    const my=++seq;
+    try{
+      const res = await nominatimSearch(q);
+      if(my!==seq) return;
+      lastSuggest=res;
+      activeIndex=lastSuggest.length?0:-1;
+      renderSuggest();
+    }catch(e){ console.warn(e); hideSuggest(); }
+  }, 220);
+});
+searchInput.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape'){ hideSuggest(); return; }
+  if(!lastSuggest.length) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); activeIndex=Math.min(lastSuggest.length-1, activeIndex+1); renderSuggest(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); activeIndex=Math.max(0, activeIndex-1); renderSuggest(); }
+  else if(e.key==='Enter'){ e.preventDefault(); const hit=lastSuggest[activeIndex]; if(hit) chooseAddress(hit); }
+});
+suggestBox.addEventListener('click', (e)=>{
+  const row=e.target.closest('.row'); if(!row) return;
+  const i=Number(row.dataset.i); const hit=lastSuggest[i]; if(hit) chooseAddress(hit);
+});
+document.addEventListener('click',(e)=>{ if(!suggestBox.contains(e.target) && e.target!==searchInput) hideSuggest(); });
+searchInput.addEventListener('blur', ()=> setTimeout(hideSuggest,150));
+function chooseAddress(hit){
+  searchInput.value = hit.label;
+  hideSuggest();
+  map.setView([hit.lat, hit.lng], 15);
+  const parcel = {
+    id:'ADDR:'+normAddr(hit.label),
+    parcelId:'',
+    owner:'',
+    landUse:'',
+    assmtYear:'',
+    coNo:'',
+    acres:'—',
+    zip:'',
+    address: hit.label,
+    title: hit.label.split(',')[0] || 'Address',
+    lat: hit.lat,
+    lng: hit.lng,
+    status:'off_market',
+    askPrice:null,
+    source:'OSM Nominatim (address point)'
+  };
+  selectParcel(parcel, false);
+  scheduleViewportLoad();
+}
+
+/* ======================
+   BUTTONS & CONTRACT UI
+====================== */
+$('centerBtn').addEventListener('click', ()=>{ if(!selected){ map.setView(FL_CENTER, 7); return; } map.setView([selected.lat, selected.lng], Math.max(15, map.getZoom())); });
+$('draftBtn').addEventListener('click', ()=>{ if(!selected) return alert('Select a property first.'); $('c_buyer').focus(); });
+$('printBtn').addEventListener('click', ()=> window.print());
+$('clearBtn').addEventListener('click', ()=>{ ['c_price','c_buyer','c_seller','c_date','c_notes'].forEach(id=>{ const el=$(id); if(el) el.value=''; }); });
+$('toggleSaleBtn').addEventListener('click', ()=>{
+  if(!selected) return alert('Select a property first.');
+  if(selected.status==='for_sale'){ selected.status='off_market'; selected.askPrice=null; }
+  else{ selected.status='for_sale'; selected.askPrice=350000+Math.floor(Math.random()*1600000); }
+  renderProperty(selected);
+});
+function loadSession(){ return JSON.parse(localStorage.getItem('rw_session')||'null'); }
+$('buyBtn').addEventListener('click', ()=>{
+  if(!selected) return alert('Select a property first.');
+  const s = loadSession();
+  if(!s || !s.loggedIn) return alert('Login first.');
+  if(!s.bank) return alert('Connect bank first (demo).');
+  if(selected.status !== 'for_sale'){
+    alert('Not listed in this MVP.\nYou can still draft an offer/contract.');
+    return;
+  }
+  const funds = Number(String(s.bank.balance||'0').replace(/[^0-9.]/g,'')||'0');
+  const price = selected.askPrice || 0;
+  if(!price) return alert('No price set for this listing.');
+  if(funds < price*0.05) return alert('MVP rule: need 5% of price in verified funds (demo check).');
+  alert('Funds verified ✅\nNext: offer → e-sign → escrow → close (real integrations later).');
+});
+
+/* ======================
+   LOGIN + BANK + API TOGGLE
+====================== */
+const backdrop=$('backdrop'), loginModal=$('loginModal'), userPill=$('userPill'), loginBtn=$('loginBtn');
+function openModal(){ backdrop.style.display='block'; loginModal.style.display='block'; loginModal.setAttribute('aria-hidden','false'); }
+function closeModal(){ backdrop.style.display='none'; loginModal.style.display='none'; loginModal.setAttribute('aria-hidden','true'); }
+$('closeLogin').addEventListener('click', closeModal);
+backdrop.addEventListener('click', closeModal);
+loginBtn.addEventListener('click', openModal);
+function saveSession(s){ localStorage.setItem('rw_session', JSON.stringify(s)); renderSession(); }
+function clearSession(){ localStorage.removeItem('rw_session'); renderSession(); }
+function renderSession(){
+  const s=loadSession();
+  if(!s){
+    userPill.textContent='Guest';
+    loginBtn.textContent='Login';
+    $('bankName').textContent='None';
+    $('bankBal').textContent='$0';
+    return;
+  }
+  userPill.textContent=s.email||'User';
+  loginBtn.textContent='Account';
+  $('bankName').textContent=s.bank?.name||'None';
+  $('bankBal').textContent=s.bank?.balance||'$0';
+}
+renderSession();
+$('doLogin').addEventListener('click', ()=>{
+  const email=$('email').value.trim();
+  const pass=$('pass').value;
+  if(!email || pass.length<4) return alert('Enter an email and password (4+ chars).');
+  const s=loadSession()||{};
+  s.email=email; s.loggedIn=true; s.bank=s.bank||null;
+  saveSession(s);
+  closeModal();
+});
+$('doLogout').addEventListener('click', ()=>{ clearSession(); closeModal(); });
+$('connectBank').addEventListener('click', ()=>{
+  const s=loadSession();
+  if(!s || !s.loggedIn) return alert('Login first.');
+  s.bank={ name:'Demo Bank', balance:'$125,000' };
+  saveSession(s);
+});
+$('unlinkBank').addEventListener('click', ()=>{
+  const s=loadSession(); if(!s || !s.loggedIn) return;
+  s.bank=null; saveSession(s);
+});
+
+function renderApiPill(){ /* optional: update API pill state */ }
+$('enableApiBtn').addEventListener('click', ()=>{
+  const base=$('apiBase').value.trim();
+  if(!base) return alert('Paste your API base URL first (e.g. http://localhost:8787).');
+  REALWORLD_API_BASE = base;
+  closeModal();
+  scheduleViewportLoad();
+});
+$('disableApiBtn').addEventListener('click', ()=>{
+  REALWORLD_API_BASE = null;
+  closeModal();
+  scheduleViewportLoad();
+});
+
+/* ======================
+   CLEAR CACHE
+====================== */
+$('clearCacheBtn').addEventListener('click', ()=>{
+  seen = new Set();
+  try{ localStorage.removeItem(PARCEL_CACHE_KEY); }catch{}
+  clusters.clearLayers();
+  if(pin){ map.removeLayer(pin); pin=null; }
+  selected=null;
+  $('livePill').textContent = 'Idle';
+  $('statusLine').childNodes[0].textContent='Cleared. Zoom in and move to reload parcels… ';
+  setBar(0);
+  scheduleViewportLoad();
+});
+
+/* ======================
+   NPC Agents + full screen stream popout
+====================== */
+function npcIcon(name){
+  return L.divIcon({
+    className:'',
+    html:`<div class="agent-wrapper">
+            <div class="agent-body">
+              <div class="agent-tv"><video data-npc="${esc(name)}" autoplay muted playsinline></video></div>
+              <div class="agent-torso" style="background:linear-gradient(180deg,#60a5fa,#1d4ed8)"></div>
+            </div>
+            <div class="agent-label">${esc(name)}</div>
+          </div>`,
+    iconSize:[64,82], iconAnchor:[32,82]
+  });
+}
+// Spawn a couple NPCs near Naples
+const npcA = L.marker([26.152, -81.784], {icon:npcIcon('Wubba')}).addTo(map);
+const npcB = L.marker([26.132, -81.804], {icon:npcIcon('Dad-in-law')}).addTo(map);
+function attachNpcStreams(){
+  [npcA,npcB].forEach(m=>{
+    const el = m.getElement();
+    if(!el) return;
+    const v = el.querySelector('video');
+    if(!v) return;
+    v.srcObject = camStream || null;
+    el.addEventListener('dblclick', (ev)=>{
+      ev.preventDefault();
+      const name = v.getAttribute('data-npc') || 'Friend';
+      enterStreamMode(name, camStream || null);
+    });
+  });
+}
+map.whenReady(()=> setTimeout(attachNpcStreams, 400));
+
+/* ======================
+   FRIENDS / MESSENGER
+====================== */
+const FRIENDS_KEY = 'rw_friends_msgs_v1';
+const friends = [
+  {id:'f1', name:'Wubba', online:true},
+  {id:'f2', name:'Dad-in-law', online:true},
+  {id:'f3', name:'Robby Agent', online:false}
+];
+let collapsed=false;
+let activeFriend=null;
+function loadMsgs(){ try{ return JSON.parse(localStorage.getItem(FRIENDS_KEY)||'{}')||{} }catch{ return {} } }
+function saveMsgs(db){ try{ localStorage.setItem(FRIENDS_KEY, JSON.stringify(db)); }catch{} }
+let msgDB = loadMsgs();
+function renderFriends(){
+  const list = $('friendsList');
+  list.innerHTML = friends.map(f=>`
+    <div class="friendRow" data-id="${esc(f.id)}">
+      <div class="avatarDot ${f.online?'on':''}"></div>
+      <div>
+        <div class="name">${esc(f.name)}</div>
+        <div class="sub">${f.online?'Online':'Offline'} • dblclick their TV head to stream</div>
+      </div>
+    </div>
+  `).join('');
+}
+renderFriends();
+$('toggleFriendsBtn').addEventListener('click', ()=>{
+  collapsed = !collapsed;
+  $('friendsList').style.display = collapsed ? 'none' : 'block';
+  $('chatBox').style.display = 'none';
+  $('toggleFriendsBtn').textContent = collapsed ? 'Expand' : 'Collapse';
+});
+$('friendsList').addEventListener('click', (e)=>{
+  const row = e.target.closest('.friendRow'); if(!row) return;
+  const id = row.dataset.id;
+  activeFriend = friends.find(x=>x.id===id) || null;
+  if(!activeFriend) return;
+  openChat(activeFriend);
+});
+function openChat(f){
+  $('friendsList').style.display='none';
+  $('chatBox').style.display='flex';
+  $('chatWho').textContent = f.name;
+  renderChat(f.id);
+  setTimeout(()=> $('chatInput').focus(), 50);
+}
+$('backToFriendsBtn').addEventListener('click', ()=>{
+  $('chatBox').style.display='none';
+  $('friendsList').style.display='block';
+});
+function renderChat(fid){
+  const wrap = $('chatMsgs');
+  const arr = msgDB[fid] || [];
+  wrap.innerHTML = arr.map(m=>`<div class="msg ${m.me?'me':''}">${esc(m.text)}</div>`).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+function sendMsg(){
+  if(!activeFriend) return;
+  const text = $('chatInput').value.trim();
+  if(!text) return;
+  msgDB[activeFriend.id] = msgDB[activeFriend.id] || [];
+  msgDB[activeFriend.id].push({me:true,text,ts:Date.now()});
+  msgDB[activeFriend.id].push({me:false,text:'👍 got it (demo reply)',ts:Date.now()+1});
+  saveMsgs(msgDB);
+  $('chatInput').value='';
+  renderChat(activeFriend.id);
+}
+$('sendMsgBtn').addEventListener('click', sendMsg);
+$('chatInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); sendMsg(); } });
+
+/* ======================
+   WATCHERS & CHAT SIMULATION
+====================== */
+const watcherNames = ['Alex','Taylor','Casey','Jordan','Riley','Sam','Jamie','Morgan','Avery','Skyler','Charlie','Cameron','Harper'];
+let watchers = [];
+const chatResponses = ['👍','Great stream!','Love this!','Amazing!','👏','🙌','This is awesome!','Wow!','So cool!','🔥'];
+let chatInterval = null;
+function randomInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function addChatMessage(panel, name, text, isMe){
+  const msgEl = document.createElement('div');
+  msgEl.className = 'msg' + (isMe ? ' me' : '');
+  if(name){ msgEl.textContent = name + ': ' + text; }
+  else { msgEl.textContent = text; }
+  panel.appendChild(msgEl);
+  panel.scrollTop = panel.scrollHeight;
+}
+function startChatSimulation(panel){
+  if(chatInterval) clearInterval(chatInterval);
+  watchers = [];
+  for(let i=0;i<3;i++){
+    const nm = watcherNames[randomInt(0, watcherNames.length-1)] + '#' + randomInt(100,999);
+    watchers.push({name:nm});
+    addChatMessage(panel, '', nm + ' joined', false);
+  }
+  chatInterval = setInterval(()=>{
+    const watcher = watchers[randomInt(0, watchers.length-1)];
+    const msg = chatResponses[randomInt(0, chatResponses.length-1)];
+    addChatMessage(panel, watcher.name, msg, false);
+    if(Math.random()<0.15 && watchers.length<10){
+      const nm = watcherNames[randomInt(0, watcherNames.length-1)] + '#' + randomInt(100,999);
+      watchers.push({name:nm});
+      addChatMessage(panel, '', nm + ' joined', false);
+    }
+  }, randomInt(3000,6000));
+}
+function stopChatSimulation(){
+  clearInterval(chatInterval);
+  chatInterval = null;
+}
+
+/* ======================
+   LIVE BROADCAST FEATURE
+====================== */
+const liveBtn = $('liveBtn');
+const liveBackdrop = $('liveBackdrop');
+const liveModal = $('liveModal');
+const liveVideo = $('liveVideo');
+const liveChat = $('liveChat');
+const liveMsgInput = $('liveMsgInput');
+const liveSendBtn = $('liveSendBtn');
+liveBtn.addEventListener('click', ()=>{
+  if(!camStream){ alert('Enable camera first to go live. Click the camera button.'); return; }
+  liveBackdrop.style.display='block';
+  liveModal.style.display='block';
+  liveVideo.srcObject = camStream;
+  liveChat.innerHTML='';
+  startChatSimulation(liveChat);
+});
+$('closeLive').addEventListener('click', ()=>{
+  liveBackdrop.style.display='none';
+  liveModal.style.display='none';
+  liveVideo.srcObject=null;
+  stopChatSimulation();
+  liveChat.innerHTML='';
+});
+liveSendBtn.addEventListener('click', ()=>{
+  const text = liveMsgInput.value.trim();
+  if(!text) return;
+  addChatMessage(liveChat, 'You', text, true);
+  liveMsgInput.value='';
+  const reply = chatResponses[randomInt(0, chatResponses.length-1)];
+  setTimeout(()=>{
+    const watcher = watchers[randomInt(0, watchers.length-1)];
+    addChatMessage(liveChat, watcher.name, reply, false);
+  }, randomInt(1000,2000));
+});
+
+/* ======================
+   GAMES LOGIC
+====================== */
+const gamesBtn = $('gamesBtn');
+const gamesPage = $('gamesPage');
+const mapContainer = $('mapContainer');
+const sidePanel = $('sidePanel');
+const playTicTacToeBtn = $('playTicTacToeBtn');
+const ticTacToeArea = $('ticTacToeArea');
+const gameUploadInput = $('gameUploadInput');
+const gameFrame = $('gameFrame');
+const backToMapFromGames = $('backToMapFromGames');
+// Health care tab elements
+const healthBtn = $('healthBtn');
+const healthPage = $('healthPage');
+const backToMapFromHealth = $('backToMapFromHealth');
+// When the Games button is clicked, show the games overlay and hide the map itself (but keep the container)
+gamesBtn.addEventListener('click', ()=>{
+  gamesPage.style.display = 'block';
+  // keep the container visible so the overlay displays correctly
+  mapContainer.style.display = 'block';
+  // hide only the map element to prevent interactions underneath
+  const mapEl = $('map');
+  if(mapEl) mapEl.style.display = 'none';
+  sidePanel.style.display = 'flex';
+  // hide full-screen stream if active
+  streamPage.style.display = 'none';
+  // hide health page if open
+  if (healthPage) healthPage.style.display = 'none';
+});
+// Clicking back from games restores the map view
+backToMapFromGames.addEventListener('click', ()=>{
+  gamesPage.style.display = 'none';
+  // ensure the map container and map element are visible again
+  mapContainer.style.display = 'block';
+  const mapEl = $('map');
+  if(mapEl) mapEl.style.display = 'block';
+});
+
+// When the Health Care button is clicked, show the health overlay and hide the map element (but keep the container)
+healthBtn.addEventListener('click', ()=>{
+  if (healthPage) {
+    healthPage.style.display = 'block';
+  }
+  // keep the container visible so the overlay displays correctly
+  mapContainer.style.display = 'block';
+  // hide only the map element to prevent interactions underneath
+  const mapElement = $('map');
+  if(mapElement) mapElement.style.display = 'none';
+  sidePanel.style.display = 'flex';
+  // hide other overlays
+  gamesPage.style.display = 'none';
+  streamPage.style.display = 'none';
+});
+
+// Clicking back from health care restores the map view
+backToMapFromHealth.addEventListener('click', ()=>{
+  if (healthPage) {
+    healthPage.style.display = 'none';
+  }
+  mapContainer.style.display = 'block';
+  const mapElement = $('map');
+  if(mapElement) mapElement.style.display = 'block';
+});
+playTicTacToeBtn.addEventListener('click', ()=>{
+  ticTacToeArea.style.display='block';
+  gameFrame.style.display='none';
+  gameUploadInput.value='';
+  startTicTacToe();
+});
+function startTicTacToe(){
+  ticTacToeArea.innerHTML='';
+  const board = Array(9).fill(null);
+  let current='X';
+  function checkWin(b){
+    const patterns=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    return patterns.some(p=>p.every(i=>b[i]==='X'))?'X':patterns.some(p=>p.every(i=>b[i]==='O'))?'O':null;
+  }
+  function render(){
+    ticTacToeArea.innerHTML='';
+    board.forEach((cell,i)=>{
+      const div=document.createElement('div');
+      div.className='ttt-cell';
+      div.textContent=cell||'';
+      div.addEventListener('click',()=>{
+        if(board[i] || checkWin(board)) return;
+        board[i]=current;
+        current=current==='X'? 'O':'X';
+        const winner=checkWin(board);
+        if(winner){ setTimeout(()=> alert(winner + ' wins!'), 10); }
+        else if(board.every(c=>c)){ setTimeout(()=> alert('Draw!'), 10); }
+        render();
+      });
+      ticTacToeArea.appendChild(div);
+    });
+    // apply our grid class and ensure layout via inline style in case CSS fails to load
+    ticTacToeArea.className='ttt-board';
+    ticTacToeArea.style.display = 'grid';
+    ticTacToeArea.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    ticTacToeArea.style.gap = '6px';
+  }
+  render();
+}
+gameUploadInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    ticTacToeArea.style.display='none';
+    gameFrame.style.display='block';
+    gameFrame.srcdoc = ev.target.result;
+  };
+  reader.readAsText(file);
+});
+
+/* ======================
+   STREAM FULL SCREEN LOGIC
+====================== */
+const streamPage = $('streamPage');
+const streamVideo = $('streamVideo');
+const streamChatMsgs = $('streamChatMsgs');
+const streamChatInput = $('streamChatInput');
+const streamSendBtn = $('streamSendBtn');
+const exitStreamBtn = $('exitStreamBtn');
+function enterStreamMode(name, stream){
+  mapContainer.style.display='none';
+  sidePanel.style.display='none';
+  gamesPage.style.display='none';
+  // hide health page if active
+  if (typeof healthPage !== 'undefined' && healthPage) healthPage.style.display = 'none';
+  streamPage.style.display='grid';
+  streamVideo.srcObject = stream || camStream || null;
+  streamChatMsgs.innerHTML='';
+  startChatSimulation(streamChatMsgs);
+}
+function exitStream(){
+  streamVideo.srcObject = null;
+  streamPage.style.display='none';
+  mapContainer.style.display='block';
+  sidePanel.style.display='flex';
+  // ensure health page is hidden when returning to map
+  if (typeof healthPage !== 'undefined' && healthPage) healthPage.style.display = 'none';
+  stopChatSimulation();
+}
+exitStreamBtn.addEventListener('click', exitStream);
+streamSendBtn.addEventListener('click', ()=>{
+  const text = streamChatInput.value.trim();
+  if(!text) return;
+  addChatMessage(streamChatMsgs, 'You', text, true);
+  streamChatInput.value='';
+  const reply = chatResponses[randomInt(0, chatResponses.length-1)];
+  setTimeout(()=>{
+    const watcher = watchers[randomInt(0, watchers.length-1)];
+    addChatMessage(streamChatMsgs, watcher.name, reply, false);
+  }, randomInt(1000,2000));
+});
+
+/* ======================
+   INIT
+====================== */
+(function init(){
+  $('pPhoto').src = demoPhoto();
+  setBar(0);
+  scheduleViewportLoad();
+})();
+</script>
+</body>
+</html>
